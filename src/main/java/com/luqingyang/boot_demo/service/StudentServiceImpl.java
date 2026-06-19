@@ -1,11 +1,13 @@
 package com.luqingyang.boot_demo.service;
 
+import com.luqingyang.boot_demo.common.Result;
 import com.luqingyang.boot_demo.dao.Student;
 import com.luqingyang.boot_demo.dao.StudentRepository;
 import com.luqingyang.boot_demo.dto.StudentsDto;
-import com.luqingyang.boot_demo.service.StudentService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -108,19 +110,37 @@ public class StudentServiceImpl implements StudentService {
         );
     }
 
-    // DTO版本更新
+    /**
+     * DTO版本更新 - 带乐观锁处理
+     * 
+     * 工作原理：
+     * 1. 从数据库查询现有学生信息（包含version字段）
+     * 2. 更新学生信息
+     * 3. 保存时，JPA会检查version是否匹配
+     * 4. 如果version不匹配（说明数据已被其他用户修改），抛出OptimisticLockingFailureException
+     * 5. 异常由GlobalExceptionHandler捕获并返回409状态码
+     * 
+     * @param id 学生ID
+     * @param dto 更新的学生信息
+     * @return 更新后的学生信息
+     * @throws OptimisticLockingFailureException 当发生版本冲突时
+     */
     @Override
+    @Transactional  // 确保整个操作在一个事务中进行
     public StudentsDto updateStudentDto(Integer id, StudentsDto dto) {
         Student existingStudent = studentRepository.findById(id).orElse(null);
         if (existingStudent == null) {
-            return null;
+            throw new RuntimeException("学生不存在，更新失败");
         }
         existingStudent.setStudentName(dto.getStudentName());
         existingStudent.setClassName(dto.getClassName());
         existingStudent.setGender(Student.Gender.valueOf(dto.getGender()));
         existingStudent.setEmail(dto.getEmail());
 
+        // ========== 关键：save时会自动触发version检查 ==========
+        // 如果version不匹配，会抛出OptimisticLockingFailureException
         Student updatedStudent = studentRepository.save(existingStudent);
+        
         return new StudentsDto(
                 updatedStudent.getStudentId(),
                 updatedStudent.getStudentName(),
