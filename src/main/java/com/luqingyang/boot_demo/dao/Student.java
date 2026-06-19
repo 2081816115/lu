@@ -31,6 +31,12 @@ public class Student {
     @Column(name = "email", length = 100)
     private String email;
 
+    // ========== 乐观锁字段 ==========
+    // 版本号，用于并发控制
+    @Version
+    @Column(name = "version")
+    private Long version;
+
     // 枚举类：和表中的枚举值保持一致
     public enum Gender {
         男, 女, 其他
@@ -96,5 +102,13 @@ public class Student {
 
     public void setEmail(String email) {
         this.email = email;
+    }
+
+    public Long getVersion() {
+        return version;
+    }
+
+    public void setVersion(Long version) {
+        this.version = version;
     }
 }
